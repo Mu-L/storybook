@@ -1,14 +1,15 @@
-import { document, fetch, Node } from 'global';
+import global from 'global';
 import dedent from 'ts-dedent';
 import { Args, ArgTypes } from '@storybook/api';
 import { simulatePageLoad, simulateDOMContentLoaded } from '@storybook/client-api';
 import { RenderContext, FetchStoryHtmlType } from './types';
 
+const { document, fetch, Node } = global;
 const rootElement = document.getElementById('root');
 
-const defaultFetchStoryHtml: FetchStoryHtmlType = async (url, path, params) => {
+const defaultFetchStoryHtml: FetchStoryHtmlType = async (url, path, params, storyContext) => {
   const fetchUrl = new URL(`${url}/${path}`);
-  fetchUrl.search = new URLSearchParams(params).toString();
+  fetchUrl.search = new URLSearchParams({ ...storyContext.globals, ...params }).toString();
 
   const response = await fetch(fetchUrl);
   return response.text();
@@ -27,12 +28,6 @@ const buildStoryArgs = (args: Args, argTypes: ArgTypes) => {
         // For cross framework & language support we pick a consistent representation of Dates as strings
         storyArgs[key] = new Date(argValue).toISOString();
         break;
-      case 'array': {
-        // use the supplied separator when serializing an array as a string
-        const separator = control.separator || ',';
-        storyArgs[key] = argValue.join(separator);
-        break;
-      }
       case 'object':
         // send objects as JSON strings
         storyArgs[key] = JSON.stringify(argValue);
@@ -52,6 +47,7 @@ export async function renderMain({
   showError,
   forceRender,
   parameters,
+  storyContext,
   storyFn,
   args,
   argTypes,
@@ -65,8 +61,8 @@ export async function renderMain({
   } = parameters;
 
   const fetchId = storyId || id;
-  const fetchParams = { ...params, ...storyArgs };
-  const element = await fetchStoryHtml(url, fetchId, fetchParams);
+  const storyParams = { ...params, ...storyArgs };
+  const element = await fetchStoryHtml(url, fetchId, storyParams, storyContext);
 
   showMain();
   if (typeof element === 'string') {

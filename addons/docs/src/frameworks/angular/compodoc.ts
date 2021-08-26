@@ -91,6 +91,9 @@ const getComponentData = (component: Component | Directive) => {
   }
   checkValidComponentOrDirective(component);
   const compodocJson = getCompodocJson();
+  if (!compodocJson) {
+    return null;
+  }
   checkValidCompodocJson(compodocJson);
   const { name } = component;
   const metadata = findComponentByName(name, compodocJson);
@@ -109,7 +112,9 @@ const displaySignature = (item: Method): string => {
 
 const extractTypeFromValue = (defaultValue: any) => {
   const valueType = typeof defaultValue;
-  return defaultValue || valueType === 'boolean' || valueType === 'string' ? valueType : null;
+  return defaultValue || valueType === 'number' || valueType === 'boolean' || valueType === 'string'
+    ? valueType
+    : null;
 };
 
 const extractEnumValues = (compodocType: any) => {
@@ -185,14 +190,16 @@ export const extractArgTypesFromData = (componentData: Class | Directive | Injec
       const section = mapItemToSection(key, item);
       const defaultValue = isMethod(item) ? undefined : extractDefaultValue(item as Property);
       const type =
-        isMethod(item) || section !== 'inputs'
+        isMethod(item) || (section !== 'inputs' && section !== 'properties')
           ? { name: 'void' }
           : extractType(item as Property, defaultValue);
+      const action = section === 'outputs' ? { action: item.name } : {};
       const argType = {
         name: item.name,
-        description: item.description,
+        description: item.rawdescription || item.description,
         defaultValue,
         type,
+        ...action,
         table: {
           category: section,
           type: {
@@ -210,9 +217,9 @@ export const extractArgTypesFromData = (componentData: Class | Directive | Injec
   });
 
   const SECTIONS = [
+    'properties',
     'inputs',
     'outputs',
-    'properties',
     'methods',
     'view child',
     'view children',
